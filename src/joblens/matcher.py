@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 
 from joblens.sections import split_requirements
 from joblens.similarity import tfidf_similarity
@@ -42,12 +42,17 @@ class MatchResult:
     missing_preferred: tuple[str, ...]
     additional_skills: tuple[str, ...]
     """Skills on the resume that the job description does not mention."""
+    inferred_matches: dict[str, tuple[str, ...]] = field(default_factory=dict)
+    """Job skills credited because the resume lists a more specific skill,
+    mapped to the resume skills that imply them (``{"Vector Databases": ("FAISS",)}``)."""
 
     def to_dict(self) -> dict[str, object]:
         data = asdict(self)
         for key, value in data.items():
             if isinstance(value, tuple):
                 data[key] = list(value)
+            elif isinstance(value, dict):
+                data[key] = {k: list(v) for k, v in value.items()}
         return data
 
 
@@ -71,16 +76,27 @@ def match(
     *,
     extractor: SkillExtractor | None = None,
     weights: MatchWeights | None = None,
+    infer_skills: bool = True,
 ) -> MatchResult:
-    """Compare a resume with a job description and explain the result."""
+    """Compare a resume with a job description and explain the result.
+
+    With ``infer_skills`` enabled, a resume skill also satisfies the broader
+    skills it implies (a resume listing FAISS covers "Vector Databases").
+    """
     extractor = extractor or default_extractor()
     weights = weights or MatchWeights()
 
-    resume_skills = extractor.extract(resume_text)
+    explicit_skills = extractor.extract(resume_text)
+    inferred = extractor.infer(explicit_skills) if infer_skills else {}
+    resume_skills = explicit_skills | inferred.keys()
     requirements = split_requirements(job_text, extractor)
 
     matched_required = requirements.required & resume_skills
     matched_preferred = requirements.preferred & resume_skills
+    inferred_matches = {
+        name: _sorted(inferred[name])
+        for name in _sorted((matched_required | matched_preferred) & inferred.keys())
+    }
 
     coverage = _weighted_coverage(
         len(matched_required),
@@ -104,5 +120,6 @@ def match(
         missing_required=_sorted(requirements.required - resume_skills),
         matched_preferred=_sorted(matched_preferred),
         missing_preferred=_sorted(requirements.preferred - resume_skills),
-        additional_skills=_sorted(resume_skills - requirements.all),
+        additional_skills=_sorted(explicit_skills - requirements.all),
+        inferred_matches=inferred_matches,
     )

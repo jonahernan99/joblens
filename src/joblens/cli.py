@@ -39,6 +39,11 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="N",
         help="Exit with status 1 when the score is below N (useful in scripts)",
     )
+    match_cmd.add_argument(
+        "--no-inference",
+        action="store_true",
+        help="Only credit skills named explicitly (FAISS will not count as Vector Databases)",
+    )
 
     skills_cmd = subcommands.add_parser("skills", help="List the skills detected in a document")
     skills_cmd.add_argument("file", type=Path, help="Any .txt, .md or .pdf document")
@@ -48,7 +53,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _run_match(args: argparse.Namespace) -> int:
-    result = match(load_text(args.resume), load_text(args.job))
+    result = match(load_text(args.resume), load_text(args.job), infer_skills=not args.no_inference)
     print(RENDERERS[args.format](result))
     if args.min_score is not None and result.score < args.min_score:
         return EXIT_BELOW_THRESHOLD

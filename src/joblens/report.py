@@ -28,6 +28,12 @@ def _join(skills: tuple[str, ...]) -> str:
     return ", ".join(skills) if skills else "-"
 
 
+def _join_inferred(inferred: dict[str, tuple[str, ...]]) -> str:
+    if not inferred:
+        return "-"
+    return ", ".join(f"{skill} (via {', '.join(sources)})" for skill, sources in inferred.items())
+
+
 def render_text(result: MatchResult) -> str:
     coverage = "n/a" if result.skill_coverage is None else f"{result.skill_coverage:.0%}"
     lines = [
@@ -43,6 +49,8 @@ def render_text(result: MatchResult) -> str:
         f"- Preferred skills missing   {_join(result.missing_preferred)}",
         f"* Other skills on resume     {_join(result.additional_skills)}",
     ]
+    if result.inferred_matches:
+        lines.append(f"~ Credited via related      {_join_inferred(result.inferred_matches)}")
     if result.missing_required:
         lines += [
             "",
@@ -74,6 +82,8 @@ def render_markdown(result: MatchResult) -> str:
         "| --- | --- |",
     ]
     lines += [f"| {label} | {_join(skills)} |" for label, skills in rows]
+    if result.inferred_matches:
+        lines.append(f"| Credited via related skills | {_join_inferred(result.inferred_matches)} |")
     return "\n".join(lines)
 
 

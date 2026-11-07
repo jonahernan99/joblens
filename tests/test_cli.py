@@ -61,3 +61,15 @@ def test_version_flag(capsys):
         main(["--version"])
     assert exc.value.code == 0
     assert "joblens" in capsys.readouterr().out
+
+
+def test_match_explains_inferred_skills(capsys):
+    assert main(["match", str(RESUME), str(JOB)]) == EXIT_OK
+    assert "Vector Databases (via FAISS)" in capsys.readouterr().out
+
+
+def test_no_inference_flag(capsys):
+    assert main(["match", str(RESUME), str(JOB), "--no-inference", "-f", "json"]) == EXIT_OK
+    data = json.loads(capsys.readouterr().out)
+    assert data["inferred_matches"] == {}
+    assert "Vector Databases" in data["missing_required"]
