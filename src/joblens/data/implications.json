@@ -1,0 +1,46 @@
+{
+  "FAISS": ["Vector Databases"],
+  "Pinecone": ["Vector Databases"],
+  "Weaviate": ["Vector Databases"],
+  "pgvector": ["Vector Databases", "PostgreSQL"],
+  "ChromaDB": ["Vector Databases"],
+
+  "PyTorch": ["Deep Learning"],
+  "TensorFlow": ["Deep Learning"],
+  "Keras": ["Deep Learning"],
+  "Deep Learning": ["Machine Learning"],
+  "scikit-learn": ["Machine Learning"],
+  "XGBoost": ["Machine Learning"],
+  "LightGBM": ["Machine Learning"],
+  "Reinforcement Learning": ["Machine Learning"],
+  "Computer Vision": ["Machine Learning"],
+  "NLP": ["Machine Learning"],
+  "OpenCV": ["Computer Vision"],
+  "spaCy": ["NLP"],
+
+  "RAG": ["LLMs", "Embeddings"],
+  "LangChain": ["LLMs"],
+  "LlamaIndex": ["LLMs"],
+  "Prompt Engineering": ["LLMs"],
+  "LLMs": ["NLP", "Generative AI"],
+
+  "MLflow": ["MLOps"],
+  "Weights & Biases": ["MLOps"],
+  "SageMaker": ["AWS", "MLOps"],
+  "Vertex AI": ["GCP", "MLOps"],
+  "BigQuery": ["GCP", "SQL"],
+  "Databricks": ["Apache Spark"],
+
+  "PostgreSQL": ["SQL"],
+  "MySQL": ["SQL"],
+  "Airflow": ["Data Pipelines"],
+  "dbt": ["ETL"],
+
+  "FastAPI": ["REST APIs"],
+  "TypeScript": ["JavaScript"],
+  "React": ["JavaScript"],
+  "Node.js": ["JavaScript"],
+
+  "GitHub Actions": ["CI/CD"],
+  "Jenkins": ["CI/CD"]
+}

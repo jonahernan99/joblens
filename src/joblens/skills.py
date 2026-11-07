@@ -4,13 +4,17 @@ The taxonomy is a JSON document mapping ``category -> {canonical_name: [aliases]
 Each alias is matched case-insensitively with custom word boundaries so that
 symbols commonly found in tech skills (``C++``, ``C#``, ``CI/CD``, ``Node.js``)
 are handled correctly, while substrings (``git`` inside ``github``) are not.
+
+An optional implication graph (``{skill: [more general skills]}``) lets a
+specific skill imply broader ones: ``FAISS -> Vector Databases`` or
+``PyTorch -> Deep Learning -> Machine Learning``.
 """
 
 from __future__ import annotations
 
 import json
 import re
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from functools import lru_cache
 from importlib import resources
@@ -58,7 +62,11 @@ def _compile_aliases(aliases: Iterable[str]) -> re.Pattern[str]:
 class SkillExtractor:
     """Detects canonical skills mentioned in a piece of text."""
 
-    def __init__(self, skills: Iterable[Skill]) -> None:
+    def __init__(
+        self,
+        skills: Iterable[Skill],
+        implications: Mapping[str, Iterable[str]] | None = None,
+    ) -> None:
         self._skills: dict[str, Skill] = {}
         for skill in skills:
             if not skill.aliases:
@@ -67,29 +75,84 @@ class SkillExtractor:
                 raise ValueError(f"Duplicate skill name in taxonomy: {skill.name!r}")
             self._skills[skill.name] = skill
         self._patterns = [(s.name, _compile_aliases(s.aliases)) for s in self._skills.values()]
+        self._implications = self._validate_implications(implications or {})
+
+    def _validate_implications(
+        self, implications: Mapping[str, Iterable[str]]
+    ) -> dict[str, tuple[str, ...]]:
+        validated: dict[str, tuple[str, ...]] = {}
+        for source, targets in implications.items():
+            targets = tuple(targets)
+            for name in (source, *targets):
+                if name not in self._skills:
+                    raise ValueError(f"Implication references unknown skill: {name!r}")
+            if source in targets:
+                raise ValueError(f"Skill {source!r} cannot imply itself")
+            validated[source] = targets
+        return validated
 
     @classmethod
-    def from_mapping(cls, taxonomy: dict[str, dict[str, list[str]]]) -> SkillExtractor:
+    def from_mapping(
+        cls,
+        taxonomy: Mapping[str, Mapping[str, Iterable[str]]],
+        implications: Mapping[str, Iterable[str]] | None = None,
+    ) -> SkillExtractor:
         """Build an extractor from a ``category -> {name: aliases}`` mapping."""
         return cls(
-            Skill(name=name, category=category, aliases=tuple(aliases))
-            for category, entries in taxonomy.items()
-            for name, aliases in entries.items()
+            (
+                Skill(name=name, category=category, aliases=tuple(aliases))
+                for category, entries in taxonomy.items()
+                for name, aliases in entries.items()
+            ),
+            implications,
         )
 
     @classmethod
-    def from_json(cls, path: str | Path | None = None) -> SkillExtractor:
-        """Load a taxonomy from ``path``, or the bundled default taxonomy."""
+    def from_json(
+        cls,
+        path: str | Path | None = None,
+        implications_path: str | Path | None = None,
+    ) -> SkillExtractor:
+        """Load a taxonomy (and optional implication graph) from JSON files.
+
+        With no arguments, the bundled taxonomy and implication graph are used.
+        """
         if path is None:
-            raw = resources.files("joblens").joinpath("data/skills.json").read_text("utf-8")
+            taxonomy = json.loads(_read_bundled("skills.json"))
+            implications = json.loads(_read_bundled("implications.json"))
         else:
-            raw = Path(path).read_text(encoding="utf-8")
-        return cls.from_mapping(json.loads(raw))
+            taxonomy = json.loads(Path(path).read_text(encoding="utf-8"))
+            implications = None
+        if implications_path is not None:
+            implications = json.loads(Path(implications_path).read_text(encoding="utf-8"))
+        return cls.from_mapping(taxonomy, implications)
 
     def extract(self, text: str) -> set[str]:
         """Return the canonical names of all skills mentioned in ``text``."""
         normalized = normalize(text)
         return {name for name, pattern in self._patterns if pattern.search(normalized)}
+
+    def infer(self, skills: Iterable[str]) -> dict[str, frozenset[str]]:
+        """Return the skills implied by ``skills``, following implications transitively.
+
+        The result maps each implied skill that is *not* already in ``skills``
+        to the explicit skills it was inferred from, so callers can explain
+        why a skill was credited (``{"Vector Databases": {"FAISS"}}``).
+        """
+        explicit = set(skills)
+        inferred: dict[str, set[str]] = {}
+        for source in explicit:
+            seen: set[str] = set()
+            stack = list(self._implications.get(source, ()))
+            while stack:
+                target = stack.pop()
+                if target in seen:
+                    continue
+                seen.add(target)
+                if target not in explicit:
+                    inferred.setdefault(target, set()).add(source)
+                stack.extend(self._implications.get(target, ()))
+        return {name: frozenset(sources) for name, sources in inferred.items()}
 
     def category(self, name: str) -> str:
         """Return the category a canonical skill belongs to."""
@@ -100,6 +163,10 @@ class SkillExtractor:
 
     def __len__(self) -> int:
         return len(self._skills)
+
+
+def _read_bundled(filename: str) -> str:
+    return resources.files("joblens").joinpath(f"data/{filename}").read_text("utf-8")
 
 
 @lru_cache(maxsize=1)
