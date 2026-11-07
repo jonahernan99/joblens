@@ -1,0 +1,33 @@
+# Changelog
+
+All notable changes to this project are documented here. The format is based on
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project follows
+[Semantic Versioning](https://semver.org/).
+
+## [0.2.0] - 2026-11-07
+
+### Added
+
+- Skill implication graph (`data/implications.json`): specific skills imply
+  broader ones, e.g. FAISS -> Vector Databases, PyTorch -> Deep Learning ->
+  Machine Learning.
+- `SkillExtractor.infer()` returns implied skills and the explicit skills they
+  came from.
+- `MatchResult.inferred_matches` and a "Credited via related" line in text and
+  Markdown reports.
+- `--no-inference` CLI flag and `infer_skills` parameter for strict matching.
+
+## [0.1.0] - 2026-11-06
+
+### Added
+
+- Symbol-aware skill extraction over a curated tech-skill taxonomy.
+- Required vs. preferred requirement parsing, including inline cues such as
+  "is an asset".
+- Explainable match scoring blending weighted skill coverage and TF-IDF
+  similarity.
+- CLI with text, Markdown and JSON output; `.txt`, `.md` and `.pdf` input.
+- pytest suite and GitHub Actions CI on Python 3.10-3.12.
+
+[0.2.0]: https://github.com/jonahernan99/joblens/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/jonahernan99/joblens/releases/tag/v0.1.0

@@ -14,17 +14,18 @@ from its **nice-to-haves**, and tells you exactly which gaps are costing you.
 ```text
 $ joblens match examples/resume_ml_engineer.md examples/job_ml_engineer_toronto.md
 
-Match score       45.1 / 100  [##############----------------]
-Skill coverage   56%
+Match score       56.1 / 100  [#################-------------]
+Skill coverage   71%
 Text similarity  12%
 
-Partial match - consider it a stretch role.
+Good match - tailor your resume to close the gaps below.
 
-+ Required skills you have   Docker, Embeddings, FastAPI, Git, Hugging Face, Machine Learning, NLP, ...
-- Required skills missing    Airflow, AWS, Code Review, Data Pipelines, LLMs, REST APIs, Statistics, ...
-+ Preferred skills you have  MLflow
-- Preferred skills missing   Kubernetes, LangChain, LlamaIndex, MLOps, Terraform
++ Required skills you have   Docker, Embeddings, FastAPI, Git, Hugging Face, LLMs, Machine Learning, ...
+- Required skills missing    Airflow, AWS, Code Review, Data Pipelines, Statistics
++ Preferred skills you have  MLflow, MLOps
+- Preferred skills missing   Kubernetes, LangChain, LlamaIndex, Terraform
 * Other skills on resume     CI/CD, FAISS, Fine-tuning, GitHub Actions, JavaScript, Linux, ...
+~ Credited via related      LLMs (via RAG), MLOps (via MLflow), REST APIs (via FastAPI), Vector Databases (via FAISS)
 ```
 
 ## Features
@@ -33,6 +34,9 @@ Partial match - consider it a stretch role.
   aliases (`k8s` -> Kubernetes, `sklearn` -> scikit-learn). Symbol-aware
   matching handles `C++`, `C#`, `CI/CD` and `Node.js` without false positives
   like `git` inside `GitHub`.
+- **Skill inference** through an implication graph: listing FAISS satisfies a
+  "vector databases" requirement, and PyTorch implies Deep Learning and Machine
+  Learning. Every inferred credit is reported with its source skill.
 - **Requirement parsing** that recognizes section headings (`Requirements`,
   `Nice to Have`, `Bonus`) and inline phrases such as
   *"experience with Kubernetes is an asset"*, common in Canadian postings.
@@ -68,6 +72,8 @@ print(result.score, result.missing_required)
 ## How scoring works
 
 1. **Extract** canonical skills from the resume and the job description.
+   Resume skills are expanded with the broader skills they imply
+   (disable with `--no-inference`).
 2. **Split** the job's skills into *required* and *preferred* using section
    headings and inline cues.
 3. **Coverage** = matched weight / total weight, with required skills weighted
@@ -90,7 +96,8 @@ src/joblens/
   report.py       # text / markdown / json renderers
   loaders.py      # .txt / .md / .pdf loading
   cli.py          # command-line interface
-  data/skills.json
+  data/skills.json        # skill taxonomy and aliases
+  data/implications.json  # skill -> broader skills it implies
 tests/            # pytest suite
 examples/         # fictional resume and job posting
 ```
@@ -105,7 +112,7 @@ pytest --cov=joblens
 
 ## Roadmap
 
-- [ ] Skill hierarchy, so specific skills imply general ones (FAISS -> Vector Databases)
+- [x] Skill hierarchy, so specific skills imply general ones (FAISS -> Vector Databases)
 - [ ] Semantic similarity with sentence-transformer embeddings (optional backend)
 - [ ] `.docx` resume support
 - [ ] Batch mode: rank many job postings against one resume

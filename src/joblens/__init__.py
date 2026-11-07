@@ -4,7 +4,7 @@ from joblens.matcher import MatchResult, MatchWeights, match
 from joblens.sections import JobRequirements, split_requirements
 from joblens.skills import SkillExtractor, default_extractor
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 __all__ = [
     "JobRequirements",
