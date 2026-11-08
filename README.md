@@ -16,7 +16,7 @@ $ joblens match examples/resume_ml_engineer.md examples/job_ml_engineer_toronto.
 
 Match score       56.1 / 100  [#################-------------]
 Skill coverage   71%
-Text similarity  12%
+Text similarity  12% (tfidf)
 
 Good match - tailor your resume to close the gaps below.
 
@@ -41,8 +41,10 @@ Good match - tailor your resume to close the gaps below.
   `Nice to Have`, `Bonus`) and inline phrases such as
   *"experience with Kubernetes is an asset"*, common in Canadian postings.
 - **Explainable scoring** that blends weighted skill coverage (a missing
-  requirement costs twice as much as a missing nice-to-have) with TF-IDF text
+  requirement costs twice as much as a missing nice-to-have) with text
   similarity.
+- **Semantic matching** (optional) with sentence-transformer embeddings, which
+  relate paraphrases that share no vocabulary.
 - **Multiple outputs**: human-readable text, Markdown reports and JSON for
   scripting. `--min-score` sets a non-zero exit code for automation.
 - Reads `.txt`, `.md` and `.pdf` files.
@@ -58,14 +60,18 @@ pip install -e ".[pdf]"
 joblens match path/to/resume.pdf path/to/job.txt
 joblens match resume.pdf job.txt --format markdown > report.md
 joblens skills resume.pdf
+
+# Optional semantic similarity (installs PyTorch; the model downloads on first use)
+pip install -e ".[embeddings]"
+joblens match resume.pdf job.txt --similarity embeddings
 ```
 
 Or use it as a library:
 
 ```python
-from joblens import match
+from joblens import get_backend, match
 
-result = match(resume_text, job_text)
+result = match(resume_text, job_text, similarity=get_backend("embeddings"))
 print(result.score, result.missing_required)
 ```
 
@@ -78,12 +84,37 @@ print(result.score, result.missing_required)
    headings and inline cues.
 3. **Coverage** = matched weight / total weight, with required skills weighted
    `1.0` and preferred skills `0.5`.
-4. **Similarity** = cosine similarity of TF-IDF vectors (unigrams + bigrams) of
-   both documents, capturing overlap beyond the skill taxonomy.
+4. **Similarity** captures overlap beyond the skill taxonomy, using one of the
+   backends below.
 5. **Score** = `100 x (0.75 x coverage + 0.25 x similarity)`. If no known skills
    appear in the posting, the score falls back to text similarity alone.
 
 Weights are configurable through `joblens.MatchWeights`.
+
+### Similarity backends
+
+| Backend | How it works | Trade-off |
+| --- | --- | --- |
+| `tfidf` (default) | Cosine similarity of TF-IDF vectors (unigrams + bigrams) over both documents | Fast, no heavy dependencies, only sees shared words |
+| `embeddings` | Sentence-transformer embeddings (`all-MiniLM-L6-v2` by default, `--model` to change) | Understands paraphrases, requires PyTorch |
+
+The embeddings backend splits both documents into line-level chunks to stay
+under the model's token limit. Each job chunk is compared with its closest
+resume chunk and the best scores are averaged, which answers *"how much of this
+job does the resume cover?"*. Unrelated extra resume content does not lower the
+result.
+
+Measured on two sentences against the job line *"Build LLM-powered assistants
+that retrieve answers from internal knowledge bases"*:
+
+| Resume line | `tfidf` | `embeddings` |
+| --- | --- | --- |
+| Developed GPT-based chatbots answering customer questions from company documents | 0.00 | 0.38 |
+| Prepared sourdough bread and managed a busy bakery kitchen every morning | 0.00 | 0.10 |
+
+The two backends use different scales, so only compare scores produced by the
+same backend. The report states which one was used. On the example files the
+overall score is 56.1 with `tfidf` and 63.7 with `embeddings`.
 
 ## Project structure
 
@@ -91,7 +122,7 @@ Weights are configurable through `joblens.MatchWeights`.
 src/joblens/
   skills.py       # taxonomy loading + symbol-aware skill extraction
   sections.py     # required vs. preferred requirement parsing
-  similarity.py   # TF-IDF text similarity
+  similarity.py   # pluggable TF-IDF and embedding backends
   matcher.py      # scoring and the MatchResult model
   report.py       # text / markdown / json renderers
   loaders.py      # .txt / .md / .pdf loading
@@ -108,12 +139,16 @@ examples/         # fictional resume and job posting
 pip install -e ".[dev]"
 ruff check . && ruff format --check .
 pytest --cov=joblens
+
+# Real-model test (needs the embeddings extra)
+pip install -e ".[embeddings]"
+pytest -m integration
 ```
 
 ## Roadmap
 
 - [x] Skill hierarchy, so specific skills imply general ones (FAISS -> Vector Databases)
-- [ ] Semantic similarity with sentence-transformer embeddings (optional backend)
+- [x] Semantic similarity with sentence-transformer embeddings (optional backend)
 - [ ] `.docx` resume support
 - [ ] Batch mode: rank many job postings against one resume
 - [ ] REST API with FastAPI + Docker image

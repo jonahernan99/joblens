@@ -5,7 +5,7 @@ from joblens.sections import JobRequirements, split_requirements
 from joblens.similarity import EmbeddingSimilarity, TfidfSimilarity, get_backend
 from joblens.skills import SkillExtractor, default_extractor
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 __all__ = [
     "EmbeddingSimilarity",
