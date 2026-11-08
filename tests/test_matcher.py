@@ -104,3 +104,21 @@ def test_inferred_skills_are_not_listed_as_additional():
 def test_to_dict_serializes_inferred_matches():
     data = match("FAISS", INFERENCE_JOB).to_dict()
     assert data["inferred_matches"] == {"Vector Databases": ["FAISS"]}
+
+
+class FixedSimilarity:
+    name = "fixed"
+
+    def __call__(self, resume_text: str, job_text: str) -> float:
+        return 0.6
+
+
+def test_custom_similarity_backend_feeds_the_score():
+    result = match("Python PyTorch Docker SQL", JOB, similarity=FixedSimilarity())
+    assert result.text_similarity == 0.6
+    assert result.similarity_method == "fixed"
+    assert result.score == pytest.approx(100 * (0.75 * 0.8 + 0.25 * 0.6))
+
+
+def test_default_similarity_method_is_tfidf():
+    assert match("Python", JOB).similarity_method == "tfidf"

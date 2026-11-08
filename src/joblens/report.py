@@ -39,7 +39,7 @@ def render_text(result: MatchResult) -> str:
     lines = [
         f"Match score      {result.score:5.1f} / 100  {_bar(result.score / 100)}",
         f"Skill coverage   {coverage}",
-        f"Text similarity  {result.text_similarity:.0%}",
+        f"Text similarity  {result.text_similarity:.0%} ({result.similarity_method})",
         "",
         _verdict(result.score),
         "",
@@ -74,7 +74,7 @@ def render_markdown(result: MatchResult) -> str:
         "",
         f"**Score:** {result.score:.1f} / 100  ",
         f"**Skill coverage:** {coverage}  ",
-        f"**Text similarity:** {result.text_similarity:.0%}",
+        f"**Text similarity:** {result.text_similarity:.0%} ({result.similarity_method})",
         "",
         f"> {_verdict(result.score)}",
         "",

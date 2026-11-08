@@ -12,6 +12,7 @@ from joblens import __version__
 from joblens.loaders import UnsupportedFileError, load_text
 from joblens.matcher import match
 from joblens.report import RENDERERS
+from joblens.similarity import BACKEND_NAMES, BackendUnavailableError, get_backend
 from joblens.skills import default_extractor
 
 EXIT_OK = 0
@@ -44,6 +45,17 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Only credit skills named explicitly (FAISS will not count as Vector Databases)",
     )
+    match_cmd.add_argument(
+        "--similarity",
+        choices=BACKEND_NAMES,
+        default="tfidf",
+        help="Text similarity backend; embeddings needs the [embeddings] extra",
+    )
+    match_cmd.add_argument(
+        "--model",
+        metavar="NAME",
+        help="Sentence-transformer model for --similarity embeddings",
+    )
 
     skills_cmd = subcommands.add_parser("skills", help="List the skills detected in a document")
     skills_cmd.add_argument("file", type=Path, help="Any .txt, .md or .pdf document")
@@ -53,7 +65,12 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _run_match(args: argparse.Namespace) -> int:
-    result = match(load_text(args.resume), load_text(args.job), infer_skills=not args.no_inference)
+    result = match(
+        load_text(args.resume),
+        load_text(args.job),
+        infer_skills=not args.no_inference,
+        similarity=get_backend(args.similarity, model=args.model),
+    )
     print(RENDERERS[args.format](result))
     if args.min_score is not None and result.score < args.min_score:
         return EXIT_BELOW_THRESHOLD
@@ -83,7 +100,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     handlers = {"match": _run_match, "skills": _run_skills}
     try:
         return handlers[args.command](args)
-    except (FileNotFoundError, UnsupportedFileError) as exc:
+    except (FileNotFoundError, UnsupportedFileError, BackendUnavailableError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_ERROR
 

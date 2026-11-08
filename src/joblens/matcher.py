@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 
 from joblens.sections import split_requirements
-from joblens.similarity import tfidf_similarity
+from joblens.similarity import SimilarityBackend, TfidfSimilarity
 from joblens.skills import SkillExtractor, default_extractor
 
 # A missing "nice to have" skill hurts half as much as a missing requirement.
@@ -35,7 +35,7 @@ class MatchResult:
     """Weighted share of the job's skills found in the resume, or ``None`` if
     no known skills were detected in the job description."""
     text_similarity: float
-    """TF-IDF cosine similarity between both documents, from 0 to 1."""
+    """Similarity between both documents, from 0 to 1 (see ``similarity_method``)."""
     matched_required: tuple[str, ...]
     missing_required: tuple[str, ...]
     matched_preferred: tuple[str, ...]
@@ -45,6 +45,9 @@ class MatchResult:
     inferred_matches: dict[str, tuple[str, ...]] = field(default_factory=dict)
     """Job skills credited because the resume lists a more specific skill,
     mapped to the resume skills that imply them (``{"Vector Databases": ("FAISS",)}``)."""
+    similarity_method: str = "tfidf"
+    """Backend that produced ``text_similarity``. Scores from different backends
+    are on different scales and should not be compared with each other."""
 
     def to_dict(self) -> dict[str, object]:
         data = asdict(self)
@@ -77,14 +80,17 @@ def match(
     extractor: SkillExtractor | None = None,
     weights: MatchWeights | None = None,
     infer_skills: bool = True,
+    similarity: SimilarityBackend | None = None,
 ) -> MatchResult:
     """Compare a resume with a job description and explain the result.
 
     With ``infer_skills`` enabled, a resume skill also satisfies the broader
     skills it implies (a resume listing FAISS covers "Vector Databases").
+    ``similarity`` selects the text similarity backend (TF-IDF by default).
     """
     extractor = extractor or default_extractor()
     weights = weights or MatchWeights()
+    backend = similarity or TfidfSimilarity()
 
     explicit_skills = extractor.extract(resume_text)
     inferred = extractor.infer(explicit_skills) if infer_skills else {}
@@ -104,22 +110,23 @@ def match(
         len(matched_preferred),
         len(requirements.preferred),
     )
-    similarity = tfidf_similarity(resume_text, job_text)
+    text_similarity = backend(resume_text, job_text)
 
     if coverage is None:
-        score = similarity * 100
+        score = text_similarity * 100
     else:
-        blended = weights.skills * coverage + weights.text * similarity
+        blended = weights.skills * coverage + weights.text * text_similarity
         score = 100 * blended / (weights.skills + weights.text)
 
     return MatchResult(
         score=round(score, 1),
         skill_coverage=None if coverage is None else round(coverage, 4),
-        text_similarity=round(similarity, 4),
+        text_similarity=round(text_similarity, 4),
         matched_required=_sorted(matched_required),
         missing_required=_sorted(requirements.required - resume_skills),
         matched_preferred=_sorted(matched_preferred),
         missing_preferred=_sorted(requirements.preferred - resume_skills),
         additional_skills=_sorted(explicit_skills - requirements.all),
         inferred_matches=inferred_matches,
+        similarity_method=backend.name,
     )

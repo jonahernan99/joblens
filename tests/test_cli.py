@@ -1,9 +1,11 @@
 import json
+import sys
 from pathlib import Path
 
 import pytest
 
 from joblens.cli import EXIT_BELOW_THRESHOLD, EXIT_ERROR, EXIT_OK, main
+from joblens.similarity import _load_encoder
 
 EXAMPLES = Path(__file__).resolve().parent.parent / "examples"
 RESUME = EXAMPLES / "resume_ml_engineer.md"
@@ -73,3 +75,15 @@ def test_no_inference_flag(capsys):
     data = json.loads(capsys.readouterr().out)
     assert data["inferred_matches"] == {}
     assert "Vector Databases" in data["missing_required"]
+
+
+def test_text_report_names_similarity_method(capsys):
+    assert main(["match", str(RESUME), str(JOB)]) == EXIT_OK
+    assert "(tfidf)" in capsys.readouterr().out
+
+
+def test_embeddings_without_dependency_returns_error(capsys, monkeypatch):
+    _load_encoder.cache_clear()
+    monkeypatch.setitem(sys.modules, "sentence_transformers", None)
+    assert main(["match", str(RESUME), str(JOB), "--similarity", "embeddings"]) == EXIT_ERROR
+    assert "joblens[embeddings]" in capsys.readouterr().err

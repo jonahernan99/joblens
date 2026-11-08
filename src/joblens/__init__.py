@@ -2,16 +2,20 @@
 
 from joblens.matcher import MatchResult, MatchWeights, match
 from joblens.sections import JobRequirements, split_requirements
+from joblens.similarity import EmbeddingSimilarity, TfidfSimilarity, get_backend
 from joblens.skills import SkillExtractor, default_extractor
 
 __version__ = "0.2.0"
 
 __all__ = [
+    "EmbeddingSimilarity",
     "JobRequirements",
     "MatchResult",
     "MatchWeights",
     "SkillExtractor",
+    "TfidfSimilarity",
     "default_extractor",
+    "get_backend",
     "match",
     "split_requirements",
     "__version__",
