@@ -1,3 +1,5 @@
+import csv
+import io
 import json
 import sys
 from pathlib import Path
@@ -95,3 +97,80 @@ def test_corrupted_pdf_returns_error(capsys, tmp_path):
     broken.write_bytes(b"this is not a pdf")
     assert main(["skills", str(broken)]) == EXIT_ERROR
     assert "Could not read PDF" in capsys.readouterr().err
+
+
+JOBS_DIR = EXAMPLES / "jobs"
+
+
+def test_rank_text_output_shows_table_and_gaps(capsys):
+    assert main(["rank", str(RESUME), str(JOB), str(JOBS_DIR)]) == EXIT_OK
+    out = capsys.readouterr().out
+    assert "Ranked 4 job postings" in out
+    assert "Most common missing required skills" in out
+
+
+def test_rank_json_is_sorted_best_first(capsys):
+    assert main(["rank", str(RESUME), str(JOBS_DIR), "-f", "json"]) == EXIT_OK
+    data = json.loads(capsys.readouterr().out)
+    scores = [item["score"] for item in data["results"]]
+    assert scores == sorted(scores, reverse=True)
+    assert data["total_jobs"] == 3
+    assert data["skill_gaps"]
+
+
+def test_rank_csv_has_header_and_one_row_per_job(capsys):
+    assert main(["rank", str(RESUME), str(JOBS_DIR), "-f", "csv"]) == EXIT_OK
+    rows = list(csv.DictReader(io.StringIO(capsys.readouterr().out)))
+    assert len(rows) == 3
+    assert rows[0]["rank"] == "1"
+
+
+def test_rank_markdown_output(capsys):
+    assert main(["rank", str(RESUME), str(JOBS_DIR), "-f", "markdown"]) == EXIT_OK
+    assert capsys.readouterr().out.startswith("# JobLens Job Ranking")
+
+
+def test_rank_top_limits_results_but_not_total(capsys):
+    assert main(["rank", str(RESUME), str(JOBS_DIR), "--top", "1", "-f", "json"]) == EXIT_OK
+    data = json.loads(capsys.readouterr().out)
+    assert len(data["results"]) == 1
+    assert data["total_jobs"] == 3
+
+
+def test_rank_min_score_can_hide_everything(capsys):
+    assert main(["rank", str(RESUME), str(JOBS_DIR), "--min-score", "101"]) == EXIT_OK
+    assert "No job postings passed the filters." in capsys.readouterr().out
+
+
+def test_rank_excludes_resume_stored_with_jobs(capsys, tmp_path):
+    resume = tmp_path / "resume.md"
+    job = tmp_path / "job.md"
+    resume.write_text("Python developer", encoding="utf-8")
+    job.write_text("Requirements:\n- Python", encoding="utf-8")
+    assert main(["rank", str(resume), str(tmp_path), "-f", "json"]) == EXIT_OK
+    assert json.loads(capsys.readouterr().out)["total_jobs"] == 1
+
+
+def test_rank_warns_about_skipped_files(capsys, tmp_path):
+    (tmp_path / "blank.md").write_text(" ", encoding="utf-8")
+    (tmp_path / "job.md").write_text("Requirements:\n- Python", encoding="utf-8")
+    assert main(["rank", str(RESUME), str(tmp_path)]) == EXIT_OK
+    assert "warning: skipped" in capsys.readouterr().err
+
+
+def test_rank_without_readable_jobs_returns_error(capsys, tmp_path):
+    assert main(["rank", str(RESUME), str(tmp_path)]) == EXIT_ERROR
+    assert "No readable job descriptions" in capsys.readouterr().err
+
+
+def test_rank_with_blank_resume_returns_error(capsys, tmp_path):
+    resume = tmp_path / "resume.md"
+    resume.write_text(" ", encoding="utf-8")
+    assert main(["rank", str(resume), str(JOBS_DIR)]) == EXIT_ERROR
+    assert "No text could be extracted" in capsys.readouterr().err
+
+
+def test_rank_rejects_non_positive_top():
+    with pytest.raises(SystemExit) as exc:
+        main(["rank", str(RESUME), str(JOBS_DIR), "--top", "0"])
+    assert exc.value.code == 2
