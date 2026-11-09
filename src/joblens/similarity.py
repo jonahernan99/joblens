@@ -118,6 +118,9 @@ class EmbeddingSimilarity:
     scores are averaged. The result answers "how much of this job does the
     resume cover?", so unrelated extra resume content does not lower it. The
     measure is therefore asymmetric: argument order matters.
+
+    The latest resume's embeddings are kept, so comparing one resume with many
+    jobs encodes the resume only once.
     """
 
     def __init__(
@@ -125,6 +128,7 @@ class EmbeddingSimilarity:
     ) -> None:
         self.model_name = model_name
         self._encoder = encoder
+        self._resume_cache: tuple[str, np.ndarray] | None = None
 
     @property
     def name(self) -> str:
@@ -137,7 +141,10 @@ class EmbeddingSimilarity:
             return 0.0
 
         encoder = self._encoder or _load_encoder(self.model_name)
-        resume_vectors = np.asarray(encoder.encode(resume_chunks, normalize_embeddings=True))
+        if self._resume_cache is None or self._resume_cache[0] != resume_text:
+            vectors = np.asarray(encoder.encode(resume_chunks, normalize_embeddings=True))
+            self._resume_cache = (resume_text, vectors)
+        resume_vectors = self._resume_cache[1]
         job_vectors = np.asarray(encoder.encode(job_chunks, normalize_embeddings=True))
 
         best_per_job_chunk = (job_vectors @ resume_vectors.T).max(axis=1)

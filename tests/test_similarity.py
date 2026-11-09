@@ -133,3 +133,24 @@ def test_real_model_captures_paraphrases():
 
     assert backend(paraphrase, job) > backend(unrelated, job) + 0.2
     assert tfidf_similarity(paraphrase, job) < 0.05
+
+
+def test_resume_is_encoded_once_across_many_jobs():
+    encoder = HashingEncoder()
+    backend = EmbeddingSimilarity(encoder=encoder)
+    jobs = ["Build data pipelines daily", "Deploy models to production", "Write clean Python code"]
+
+    for job in jobs:
+        backend(JOB_LINE, job)
+
+    assert len(encoder.calls) == 1 + len(jobs)
+
+
+def test_new_resume_is_encoded_again():
+    encoder = HashingEncoder()
+    backend = EmbeddingSimilarity(encoder=encoder)
+
+    backend(JOB_LINE, "Deploy models to production")
+    backend("Cooked many tasty dishes today", "Deploy models to production")
+
+    assert len(encoder.calls) == 4
