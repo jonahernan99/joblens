@@ -6,6 +6,7 @@ from pathlib import Path
 
 TEXT_SUFFIXES = {".txt", ".md", ""}
 PDF_SUFFIX = ".pdf"
+DOCUMENT_SUFFIXES = (TEXT_SUFFIXES - {""}) | {PDF_SUFFIX}
 
 
 class UnsupportedFileError(ValueError):
@@ -24,17 +25,21 @@ def load_text(path: str | Path) -> str:
     if suffix == PDF_SUFFIX:
         return _load_pdf(path)
 
-    supported = ", ".join(sorted(s for s in TEXT_SUFFIXES | {PDF_SUFFIX} if s))
+    supported = ", ".join(sorted(DOCUMENT_SUFFIXES))
     raise UnsupportedFileError(f"Unsupported file type {suffix!r} (supported: {supported})")
 
 
 def _load_pdf(path: Path) -> str:
     try:
         from pypdf import PdfReader
+        from pypdf.errors import PyPdfError
     except ImportError as exc:  # pragma: no cover - depends on optional extra
         raise UnsupportedFileError(
             "PDF support requires the optional dependency: pip install 'joblens[pdf]'"
         ) from exc
 
-    reader = PdfReader(str(path))
-    return "\n".join(page.extract_text() or "" for page in reader.pages)
+    try:
+        reader = PdfReader(str(path))
+        return "\n".join(page.extract_text() or "" for page in reader.pages)
+    except PyPdfError as exc:
+        raise UnsupportedFileError(f"Could not read PDF {path}: {exc}") from exc

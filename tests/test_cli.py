@@ -87,3 +87,11 @@ def test_embeddings_without_dependency_returns_error(capsys, monkeypatch):
     monkeypatch.setitem(sys.modules, "sentence_transformers", None)
     assert main(["match", str(RESUME), str(JOB), "--similarity", "embeddings"]) == EXIT_ERROR
     assert "joblens[embeddings]" in capsys.readouterr().err
+
+
+def test_corrupted_pdf_returns_error(capsys, tmp_path):
+    pytest.importorskip("pypdf")
+    broken = tmp_path / "broken.pdf"
+    broken.write_bytes(b"this is not a pdf")
+    assert main(["skills", str(broken)]) == EXIT_ERROR
+    assert "Could not read PDF" in capsys.readouterr().err
