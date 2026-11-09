@@ -4,6 +4,24 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project follows
 [Semantic Versioning](https://semver.org/).
 
+## [0.4.0] - 2026-11-09
+
+### Added
+
+- `joblens rank` scores many postings, given as files or directories, against
+  one resume, with text, Markdown, JSON and CSV reports.
+- Summary of the required skills missing most often across all postings.
+- `--top` and `--min-score` options for `rank`.
+- `rank_jobs()`, `Ranking` and three more fictional example postings.
+
+### Changed
+
+- The embeddings backend encodes a repeated resume only once.
+
+### Fixed
+
+- Corrupted PDFs now produce a clear error instead of a traceback.
+
 ## [0.3.0] - 2026-11-08
 
 ### Added
@@ -40,6 +58,7 @@ All notable changes to this project are documented here. The format is based on
 - CLI with text, Markdown and JSON output; `.txt`, `.md` and `.pdf` input.
 - pytest suite and GitHub Actions CI on Python 3.10-3.12.
 
+[0.4.0]: https://github.com/jonahernan99/joblens/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/jonahernan99/joblens/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/jonahernan99/joblens/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/jonahernan99/joblens/releases/tag/v0.1.0

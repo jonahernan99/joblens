@@ -45,8 +45,11 @@ Good match - tailor your resume to close the gaps below.
   similarity.
 - **Semantic matching** (optional) with sentence-transformer embeddings, which
   relate paraphrases that share no vocabulary.
-- **Multiple outputs**: human-readable text, Markdown reports and JSON for
-  scripting. `--min-score` sets a non-zero exit code for automation.
+- **Batch ranking** of many postings against one resume, with a summary of the
+  required skills you are missing most often across all of them.
+- **Multiple outputs**: human-readable text, Markdown reports, JSON for
+  scripting and CSV for spreadsheets. In `match`, `--min-score` sets a non-zero
+  exit code for automation.
 - Reads `.txt`, `.md` and `.pdf` files.
 
 ## Quick start
@@ -61,6 +64,10 @@ joblens match path/to/resume.pdf path/to/job.txt
 joblens match resume.pdf job.txt --format markdown > report.md
 joblens skills resume.pdf
 
+# Rank a folder of saved postings and see which skills to learn first
+joblens rank resume.pdf saved_jobs/ --top 10
+joblens rank resume.pdf saved_jobs/ --format csv > ranking.csv
+
 # Optional semantic similarity (installs PyTorch; the model downloads on first use)
 pip install -e ".[embeddings]"
 joblens match resume.pdf job.txt --similarity embeddings
@@ -74,6 +81,33 @@ from joblens import get_backend, match
 result = match(resume_text, job_text, similarity=get_backend("embeddings"))
 print(result.score, result.missing_required)
 ```
+
+## Ranking many postings
+
+```text
+$ joblens rank examples/resume_ml_engineer.md examples/job_ml_engineer_toronto.md examples/jobs
+
+Ranked 4 job postings
+
+  #  Score  Skills  Missing  Job
+  1   57.5     74%        2  examples/jobs/applied_ai_engineer_fintech.md
+  2   56.1     71%        5  examples/job_ml_engineer_toronto.md
+  3   37.0     46%        6  examples/jobs/backend_engineer_toronto.md
+  4   29.7     38%        4  examples/jobs/data_analyst_toronto.md
+
+Text similarity backend: tfidf
+
+Most common missing required skills (all 4 postings)
+  AWS               2/4  [#####-----]
+  Code Review       2/4  [#####-----]
+  Kubernetes        2/4  [#####-----]
+  Statistics        2/4  [#####-----]
+  ...
+```
+
+`--top` and `--min-score` shorten the list, while the skill gaps always describe
+every posting analyzed. Unreadable or empty files, such as scanned PDFs with no
+text layer, are skipped with a warning so one bad file does not stop the batch.
 
 ## How scoring works
 
@@ -124,13 +158,14 @@ src/joblens/
   sections.py     # required vs. preferred requirement parsing
   similarity.py   # pluggable TF-IDF and embedding backends
   matcher.py      # scoring and the MatchResult model
-  report.py       # text / markdown / json renderers
+  ranker.py       # batch ranking and skill gap summary
+  report.py       # text / markdown / json / csv renderers
   loaders.py      # .txt / .md / .pdf loading
   cli.py          # command-line interface
   data/skills.json        # skill taxonomy and aliases
   data/implications.json  # skill -> broader skills it implies
 tests/            # pytest suite
-examples/         # fictional resume and job posting
+examples/         # fictional resume and job postings
 ```
 
 ## Development
@@ -150,7 +185,8 @@ pytest -m integration
 - [x] Skill hierarchy, so specific skills imply general ones (FAISS -> Vector Databases)
 - [x] Semantic similarity with sentence-transformer embeddings (optional backend)
 - [ ] `.docx` resume support
-- [ ] Batch mode: rank many job postings against one resume
+- [x] Batch mode: rank many job postings against one resume
+- [ ] Understand alternatives in requirements ("Power BI or Tableau" currently counts as two required skills)
 - [ ] REST API with FastAPI + Docker image
 - [ ] Web UI demo
 - [ ] Optional LLM-powered suggestions for rewriting resume bullets
